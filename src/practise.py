@@ -1,13 +1,17 @@
 
-from langchain_chroma import Chroma
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
+from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langsmith import trace
 
 load_dotenv()
+
+ROOT_DIR = Path(__file__).resolve().parent.parent
+CHROMA_DIR = ROOT_DIR / "chroma_langchain_db"
 
 documents = [
     Document(
@@ -38,27 +42,20 @@ assert len(vector_1) == len(vector_2)
 print(f"Generated vectors of length {len(vector_1)}")
 print(vector_1[:10])
 
-
-
-# load_dotenv()
-# gemini_key = os.getenv("gemini_key")
-
-
-# with trace (
-#     "generate_embeddings",
-#     run_type= "chain",
-#     tags="",
-#     metadata= ""
-# ):
-#     embeddings = GoogleGenerativeAIEmbeddings(model="")
-#     vector1= embeddings.embed_query(documents[0].page_content)
-
-
-#Store embeddigns on chrome
-
-vector_Db = Chroma(
-    collection_name="docCOllection",
+vector_db = Chroma(
+    collection_name="doc_collection",
     embedding_function=embeddings,
-    persist_directory="./chroma_langchain_db"
+    persist_directory=str(CHROMA_DIR),
 )
 
+vector_db.add_documents(
+    documents=documents,
+    ids=["document1", "document2"],
+)
+
+query = "What does the second document contain?"
+results = vector_db.similarity_search(query, k=1)
+
+print("\nMost similar document:")
+print(results[0].page_content)
+print(results[0].metadata)
