@@ -1,4 +1,5 @@
 
+from langchain_chroma import Chroma
 import os
 
 from dotenv import load_dotenv
@@ -53,4 +54,11 @@ print(vector_1[:10])
 #     vector1= embeddings.embed_query(documents[0].page_content)
 
 
-    
+#Store embeddigns on chrome
+
+vector_Db = Chroma(
+    collection_name="docCOllection",
+    embedding_function=embeddings,
+    persist_directory="./chroma_langchain_db"
+)
+
