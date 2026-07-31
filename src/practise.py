@@ -1,17 +1,13 @@
 
+from langchain_chroma import Chroma
 import os
-from pathlib import Path
 
 from dotenv import load_dotenv
-from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langsmith import trace
 
 load_dotenv()
-
-ROOT_DIR = Path(__file__).resolve().parent.parent
-CHROMA_DIR = ROOT_DIR / "chroma_langchain_db"
 
 documents = [
     Document(
@@ -41,21 +37,27 @@ assert len(vector_1) == len(vector_2)
 
 print(f"Generated vectors of length {len(vector_1)}")
 print(vector_1[:10])
+#Store embeddigns on chrome
 
-vector_db = Chroma(
-    collection_name="doc_collection",
+vector_Db = Chroma(
+    collection_name="docCOllection",
     embedding_function=embeddings,
-    persist_directory=str(CHROMA_DIR),
+    persist_directory="./chroma_langchain_db"
 )
 
-vector_db.add_documents(
-    documents=documents,
-    ids=["document1", "document2"],
+
+#Add to Database
+
+vector_Db.add_documents(documents=documents)
+print ("Sotred ...")
+
+
+#For llmRAG pipeline
+#Turn into a retriever
+
+
+retriever = vector_Db.as_retriever(
+    search_type ="similarity",
+    search_kwargd= {"k":1}
 )
 
-query = "What does the second document contain?"
-results = vector_db.similarity_search(query, k=1)
-
-print("\nMost similar document:")
-print(results[0].page_content)
-print(results[0].metadata)
