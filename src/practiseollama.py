@@ -8,11 +8,20 @@ from langchain_core.runnables import RunnablePassthrough
 
 #Declare model
 model = ChatOllama(model="llama2",temperature=0)
-prompt = ChatPromptTemplate.from_messages([
+""" prompt = ChatPromptTemplate.from_messages([
 
     ("system", "You are a recommendar for restaurants, recommend based on available ratings and context{context} "),
     ("user", "{input}")
 ])
+ """
+
+
+prompt= ChatPromptTemplate.from_messages([
+    ("system", "You are an expert recommender for restaurantss, recommend based on the given context here {context}"),
+    ("user", "{input}")
+])
+
+
 
 chain= (
     {"context": itemgetter("input") | retriever, "input": RunnablePassthrough()}

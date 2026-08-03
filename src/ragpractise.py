@@ -40,7 +40,6 @@ vector_Db = Chroma(
     persist_directory=db_location
 )
 
-
 #Add to Database
 if add_documents:
     vector_Db.add_documents(documents=documents, ids=ids)
@@ -49,4 +48,3 @@ if add_documents:
 retriever = vector_Db.as_retriever(
     search_kwargs={"k": 5}
 )
-
