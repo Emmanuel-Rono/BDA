@@ -30,6 +30,8 @@ while True:
     if quiestion.lower() == "q":
         break
 
+#This actually does the  work for passing user input to the model and then get us back the response.
+
     response = chain.invoke({"input": quiestion})
     print (response)
 
