@@ -1,18 +1,36 @@
+from operator import itemgetter
+
 from langchain_ollama import ChatOllama
 from langchain_core.prompts import ChatPromptTemplate
-
+from ragpractise import retriever
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables import RunnablePassthrough
 
 #Declare model
 model = ChatOllama(model="llama2",temperature=0)
 prompt = ChatPromptTemplate.from_messages([
 
-    ("system", "You are a recommendar for restaurants in Kenya, recommend based on available ratings"),
+    ("system", "You are a recommendar for restaurants, recommend based on available ratings and context{context} "),
     ("user", "{input}")
 ])
 
-chain = prompt| model
+chain= (
+    {"context": itemgetter("input") | retriever, "input": RunnablePassthrough()}
+    #Actual flow of the chain
+    #Prompt with retriever context and user input, then pass to model, then parse output
+    | prompt
+    | model
+    | StrOutputParser()
+)
 
-response = chain.invoke({"input": "List 5 best veg hotels in nairobi"})
-print (response.content)
+while True:
+    print("\n\n-------------")
+    quiestion = input("Ask a question: ")
+    print("-------------\n\n")
+    if quiestion.lower() == "q":
+        break
+
+    response = chain.invoke({"input": quiestion})
+    print (response)
 
 

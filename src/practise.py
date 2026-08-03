@@ -45,16 +45,13 @@ vector_Db = Chroma(
     persist_directory="./chroma_langchain_db"
 )
 
-
 #Add to Database
 
 vector_Db.add_documents(documents=documents)
 print ("Sotred ...")
 
-
 #For llmRAG pipeline
 #Turn into a retriever
-
 
 retriever = vector_Db.as_retriever(
     search_type ="similarity",
