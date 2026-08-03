@@ -30,7 +30,10 @@ if add_documents:
 
         ids.append(str(i))
         documents.append(doc)
-         
+
+
+#This one initialise the db]
+#We are using chrm for this database. 
 vector_Db = Chroma(
     collection_name = "restaurant_reviews",
     embedding_function=embeddings,
