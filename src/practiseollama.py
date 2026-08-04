@@ -5,6 +5,12 @@ from langchain_core.prompts import ChatPromptTemplate
 from ragpractise import retriever
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
+import os
+from dotenv import load_dotenv
+
+
+#Load Env Variables from .env
+load_dotenv()
 
 #Declare model
 model = ChatOllama(model="llama2",temperature=0)
