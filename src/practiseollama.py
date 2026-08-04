@@ -22,8 +22,11 @@ prompt= ChatPromptTemplate.from_messages([
 ])
 
 
-
 chain= (
+    #itemgetter is used to get the inout from user and pass it to the retriever to get context by using cosimilarity search. 
+    #RunnablePassthrough is used to pass the initial user input as is to next step of the chain.
+    #Now context will have the retriver output and input will have the user input.
+    #We proceed to pipe both to the prompt, then to the model and finally output parser to get the content of response as a string.
     {"context": itemgetter("input") | retriever, "input": RunnablePassthrough()}
     #Actual flow of the chain
     #Prompt with retriever context and user input, then pass to model, then parse output
