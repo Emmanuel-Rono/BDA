@@ -27,6 +27,7 @@ chain= (
     #RunnablePassthrough is used to pass the initial user input as is to next step of the chain.
     #Now context will have the retriver output and input will have the user input.
     #We proceed to pipe both to the prompt, then to the model and finally output parser to get the content of response as a string.
+    #This is what is called a chain in langchain, we are chaining together multiple steps to get the final output.
     {"context": itemgetter("input") | retriever, "input": RunnablePassthrough()}
     #Actual flow of the chain
     #Prompt with retriever context and user input, then pass to model, then parse output
