@@ -1,132 +1,178 @@
-# BDA — Commerce Document Intelligence Agent
+# BDA | Commerce Document Intelligence Agent
 
-BDA reads an invoice and packing slip, extracts fields with local Qwen, and checks
-their quantities against a Spree order. Every extracted value carries a page and
-source quote. Python calculates differences using Decimal. Staff review the report;
-approval saves it locally without changing inventory, orders or payments.
+BDA compares invoices and packing slips with Spree order records. It extracts
+source-backed document fields, checks quantities and invoice arithmetic, and saves
+structured discrepancy reports for staff review. The dashboard keeps documents,
+findings and model conversations in one workspace.
 
-## Simple design
+## Features
+
+- Text PDF, TXT and Markdown document parsing with page references.
+- Local Qwen extraction into validated document schemas.
+- Source-quote checks for extracted identifiers, quantities and amounts.
+- Exact order-reference matching and read-only Spree integration.
+- SKU quantity reconciliation, line arithmetic and subtotal checks using Decimal.
+- Duplicate-upload handling and persistent review decisions.
+- Browser conversations grounded in a selected report.
+- Light and dark themes, responsive layouts and JSON report downloads.
+
+## Architecture
 
 ```mermaid
 flowchart LR
-  Upload[Invoice + packing slip] --> Parse[Read text / PDF pages]
-  Parse --> Qwen[Local Qwen extracts JSON]
-  Qwen --> Validate[Check fields against source quotes]
-  Validate --> Spree[Read exact Spree order]
-  Spree --> Compare[Python quantity and amount checks]
-  Compare --> Review[Human reviews report]
-  Review --> DB[(SQLite + local files)]
+    Upload[Invoice and packing slip] --> Parse[Page extraction]
+    Parse --> Model[Local Qwen]
+    Model --> Validate[Schema and source validation]
+    Validate --> Spree[Spree order lookup]
+    Spree --> Compare[Python reconciliation]
+    Compare --> Report[Discrepancy report]
+    Report --> Review[Staff review]
+    Review --> Database[(SQLite and local files)]
 ```
 
-One Python app, one SQLite database and a plain web page. There is no agent
-framework or autonomous tool loop here: this first version is a fixed AI-assisted
-document workflow. That makes matching and financial checks easier to explain.
+The model extracts document fields. Python validates their source evidence and
+calculates differences. Staff review the findings before accepting the internal
+report. Approvals do not modify Spree records.
 
-## Install and run
+| Component | Technology |
+| --- | --- |
+| Application API | Python 3.13, FastAPI, Pydantic |
+| Local inference | Ollama, Qwen 3 |
+| PDF parsing | pypdf |
+| Commerce integration | HTTPX, Spree 6 Admin API v3 |
+| Reconciliation | Python Decimal |
+| Persistence | SQLite and local file storage |
+| Dashboard | HTML, CSS, JavaScript |
+| Automated checks | pytest, GitHub Actions |
 
-Use Python 3.13 and start Ollama. Prepare the model:
+[Architecture and API reference](docs/architecture.md)
+
+## Installation
+
+Install Python 3.13, Git and Ollama. Keep Ollama running in the background.
+For live order access, run a Spree 6 store separately.
 
 ```powershell
-ollama pull qwen3:1.7b
+git clone https://github.com/Emmanuel-Rono/BDA.git
+cd BDA
 py -3.13 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.lock.txt
 .\.venv\Scripts\python.exe configure.py
-.\.venv\Scripts\python.exe -m uvicorn app.main:create_app --factory --host 127.0.0.1 --port 8002 --workers 1
+ollama pull qwen3:1.7b
 ```
 
-Open **http://localhost:8002**. Copy `APP_API_TOKEN` from the private `.env` into
-the access form. Click **Run demo document pair**, or upload the two files under
-`examples/`. The invoice lists three units; the packing slip lists two.
-The expected difference is minus one, which requires review.
+`configure.py` creates a private `.env` and server signing key without replacing
+existing configuration. The dashboard opens a local browser session automatically;
+users do not enter service keys in the interface.
 
-Default `SPREE_MODE=fixture` uses clearly labelled demo records. The extraction
-still uses actual local model inference. Live failures never fall back to fixtures.
+## Configuration
 
-## Connect Spree
+The default `SPREE_MODE=fixture` uses the sample order in `examples/store.json`.
+Document extraction still runs through the local Ollama model.
 
-The adapter targets Spree 6.0.6, Admin API v3. Configure a read-only server key:
+For live Spree access, edit `.env`:
 
 ```dotenv
 SPREE_MODE=live
 SPREE_BASE_URL=http://localhost:3000
 SPREE_API_KEY=sk_your_read_only_key
-STORE_ID=your_actual_store_id
+STORE_ID=your_store_id
 ```
 
-Use `read_orders,read_fulfillments,read_products` scopes. Both uploaded documents must explicitly
-reference the same exact order number and contain SKUs matching its items.
-The `examples/live-order.json` file, when supplied, records this machine's demo
-reference. Use your own references when installing elsewhere.
+Use a secret key scoped to `read_orders`, `read_fulfillments` and `read_products`.
+Both documents must state the same exact order number. SKUs are compared with
+that order's items. Keep credentials and store-specific files in private storage.
 
-## Checks and evidence
+## Run
+
+```powershell
+.\.venv\Scripts\python.exe -m uvicorn app.main:create_app --factory --host 127.0.0.1 --port 8002 --workers 1
+```
+
+Open [localhost:8002](http://localhost:8002).
+
+1. Upload an invoice and packing slip in **Assistant**.
+2. Select **Compare documents**.
+3. Inspect the quantity comparison, source pages and extracted fields.
+4. Ask follow-up questions in the conversation panel.
+5. Add a review note and approve or reject the internal report.
+
+**Documents** lists the sources attached to processed reports. **Reports** opens saved
+comparisons. **Settings** controls appearance and connection checks. The model loads
+when a request is submitted. Run one comparison at a time on CPU.
+
+## Sample workflow
+
+In fixture mode, select **Try the demo documents** or upload `examples/invoice.pdf`
+and `examples/packing-slip.pdf`. The sample order contains three units, the invoice
+lists three, and the packing slip lists two. The report flags a difference of one unit.
+
+For a live store, upload documents referencing your own order. The sample button
+reads local files named `live-invoice.txt` and `live-packing-slip.txt` from
+`data/examples/`. These store-specific documents stay outside version control.
+
+## Testing
+
+Run the automated suite without starting Spree or loading a model:
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q --junitxml=reports/tests.xml
-.\.venv\Scripts\python.exe verify_demo.py
 ```
 
-Unit/API tests use doubles. The separate verification command performs actual
-model extraction, source validation, configured order access, quantity comparison,
-duplicate handling and approval. Its result and measured duration are saved in
-`reports/real-model-smoke.json`. See [verification](docs/verification.md).
+The suite covers document parsing, source evidence, exact arithmetic, order matching,
+currency rules, duplicates, persistence, review decisions, browser sessions, request
+origins and model-conversation API contracts.
 
-| File | What it does |
-| --- | --- |
-| `app/main.py` | Accept files, persist a job, run the workflow |
-| `app/documents.py` | Validate input and preserve PDF/text page numbers |
-| `app/extraction.py` | Define extraction fields and verify exact source quotes |
-| `app/reconcile.py` | Match references, aggregate SKU quantities, check arithmetic |
-| `app/spree.py` | Read-only order access and explicit fixture mode |
-| `app/model.py` | Local Ollama inference and JSON-schema validation |
-| `app/storage.py` | Persistent jobs and versioned staff reviews |
-| `static/` | Plain HTML, CSS and JavaScript |
+Run the integration check using the bundled fixture documents:
 
-The model reads the document; ordinary Python decides whether values match.
-Missing values stay null. It never guesses an order reference. Repeated uploads
-of the same document pair return the existing job instead of re-running inference.
-Failed pairs also return their saved result; correcting the document creates a new
-hash. Repeated approvals with the same version and note are idempotent.
+```powershell
+.\.venv\Scripts\python.exe verify_integration.py
+```
 
-## Current limits
+For documents from your live store:
 
-- English clean-text PDFs, TXT and Markdown only. Maximum 2 MB, 10 pages and
-  50,000 parsed characters per file; the model workflow accepts at most 10,000. Documents with image-only pages need OCR.
-- Whole-unit quantities and USD amounts with two decimal places. No currency
-  conversion, translation, supplier purchase-order workflow or scanned OCR yet.
-- Checks cover order/invoice/packing quantities, quantity × unit price, and sum
-  of invoice line totals. Grand total is not compared with the order because
-  shipping, discounts and taxes may differ. A quantity difference may be a partial
-  shipment; it is a review item, not proof of a warehouse mistake.
-- Source-quote validation reduces unsupported extraction but does not prove table
-  interpretation is perfect. Review every discrepancy against the source pages.
-- Original files, extracted fields and review notes remain local under `data/`.
-  Review notes preserve corrections; a field-editing interface is future work.
-- One configured store and one demo staff token. There are no multi-user roles.
-- Synchronous processing, one server worker. Interrupted jobs are marked failed
-  after restart. A durable worker queue is future work.
-- Shared policy RAG, Docling/OCR, multilingual evaluation and production auth from
-  the larger project plan are not part of this first demonstrable workflow.
+```powershell
+.\.venv\Scripts\python.exe verify_integration.py --invoice C:\documents\invoice.pdf --packing-slip C:\documents\packing-slip.pdf
+```
 
-## Sharing and deployment
+The integration check uses the configured local model and order source, validates
+the comparison, checks duplicate handling, approves an internal report and verifies
+the saved decision. It uses a temporary application database and saves its result
+in `reports/integration.json`. Spree records remain unchanged.
 
-`docker compose up --build` runs BDA on port 8002 with its own data volume.
-Docker Desktop resolves host Ollama/Spree through `host.docker.internal`.
-The Dockerfile is supplied; build results are recorded in the verification note.
-The base Python image uses a minor-version tag, not an immutable/offline bundle.
+GitHub Actions runs the isolated pytest suite on pushes and pull requests and
+uploads JUnit results. Integration checks use separately configured local services.
 
-Publish this folder as its own GitHub repository. It does not import COA and can
-run without it. Small infrastructure files are duplicated deliberately to keep
-both beginner projects independent; maintain both when fixing shared behaviour.
-CI runs isolated tests on push/PR. Real model and Spree checks run separately.
-Do not commit `.env`, `data/`, tokens or private reports. Share the source, verified
-status and a short recording. GitHub hosts source code, not this Python server.
+## Repository structure
 
-Before upgrades, privately back up `.env` and `data/`. Restore them with the matching
-source version to roll back. Stop and archive `data/` for a fresh demo database.
+```text
+app/                    API, parsing, extraction, reconciliation and persistence
+static/                 Dashboard, themes and browser interactions
+examples/               Portable sample documents and order fixtures
+tests/                  Automated application and access-control tests
+docs/architecture.md    Design decisions and API reference
+configure.py            Private environment setup
+verify_integration.py   Explicit integration check using local services
+requirements.lock.txt   Pinned application and test dependencies
+```
 
-Built with AI coding assistance. Review the workflow and tests before presenting
-it as work you can independently explain.
+## Operating scope
 
-References: [Ollama structured outputs](https://docs.ollama.com/capabilities/structured-outputs),
-[Spree Admin API](https://spreecommerce.org/docs/api-reference/admin-api/authentication),
-[pypdf text extraction](https://pypdf.readthedocs.io/en/stable/user/extract-text.html).
+BDA processes English text documents, whole-unit quantities and USD line amounts
+with two decimal places. Files are limited to 2 MB and 10 pages; model extraction
+accepts up to 10,000 characters per document. Image-only pages require OCR and are
+rejected by this text-document workflow.
+
+Checks compare order, invoice and packed quantities; quantity multiplied by unit
+price; and the sum of invoice line totals against the subtotal. Grand totals are
+not compared with order totals because shipping, discounts and taxes are separate
+charges. Quantity differences are review items; staff check partial-shipment records
+before classifying them as missing stock.
+
+The application serves one configured store and one local staff workspace. Browser
+sessions use signed HttpOnly cookies and origin checks. Processing is synchronous
+and runs in one server worker. Interrupted jobs are marked failed after restart.
+
+Original documents, reports, review notes and credentials stay in private local
+storage. They are excluded from version control. Back up `.env` and `data/` privately
+before replacing an installation.
